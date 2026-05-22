@@ -35,6 +35,7 @@ requires
 
 contains
   MyPlugins.MainMenuItems in 'src\MyPlugins.MainMenuItems.pas',
-  MyPlugins.Views.ViewLab in 'src\MyPlugins.Views.ViewLab.pas' {ViewLab};
+  MyPlugins.Views.ViewLab in 'src\MyPlugins.Views.ViewLab.pas' {ViewLab},
+  uSplashScreen in 'src\uSplashScreen.pas';
 
 end.

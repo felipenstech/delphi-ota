@@ -98,6 +98,7 @@
             <Form>ViewLab</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="src\uSplashScreen.pas"/>
         <RcItem Include="icons\CHEM16.BMP">
             <ResourceType>BITMAP</ResourceType>
             <ResourceId>ID_SITE</ResourceId>
@@ -105,6 +106,17 @@
         <RcItem Include="icons\CHIP16.BMP">
             <ResourceType>BITMAP</ResourceType>
             <ResourceId>ID_EXEC</ResourceId>
+        </RcItem>
+        <RcCompile Include="dclMenusResource.rc">
+            <Form>dclMenusResource.res</Form>
+        </RcCompile>
+        <RcItem Include="icons\about_48x48.bmp">
+            <ResourceType>BITMAP</ResourceType>
+            <ResourceId>ID_ABOUT</ResourceId>
+        </RcItem>
+        <RcItem Include="icons\splash_24x24.bmp">
+            <ResourceType>BITMAP</ResourceType>
+            <ResourceId>ID_SPLASH</ResourceId>
         </RcItem>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>

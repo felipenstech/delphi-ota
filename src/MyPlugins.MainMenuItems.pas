@@ -4,6 +4,7 @@ interface
 
 uses
   ToolsAPI,
+  DesignIntf,
   Vcl.Menus,
   Vcl.ActnList;
 
@@ -208,6 +209,8 @@ end;
 
 procedure Register;
 begin
+  ForceDemandLoadState(dlDisable);
+
   RegisterPackageWizard(TOtimizyWizard.Create());
 end;
 
