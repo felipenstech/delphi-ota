@@ -20,6 +20,7 @@ type
     procedure EvMenuSiteClick(Sender: TObject);
     procedure EvMenuExecutarClick(Sender: TObject);
     procedure EvMenuTraduzirClick(ASender: TObject);
+    procedure EvMenuTelemetryClick(Sender: TObject);
     procedure RegisterMenus(ANTAService: INTAServices);
   public
     function GetIDString: string;
@@ -31,8 +32,6 @@ type
     destructor Destroy; override;
   end;
 
-procedure Register; forward;
-
 implementation
 
 uses
@@ -42,7 +41,8 @@ uses
   Vcl.Dialogs,
   Vcl.Controls,
   Vcl.Graphics,
-  CodeSiteLogging;
+  CodeSiteLogging,
+  MyPlugins.Telemetry;
 
 { TOtimizyWizard }
 
@@ -55,10 +55,12 @@ begin
     Exit;
 
   FImageIndexSite := -1;
-  FImageIndexSite := -1;
+  FImageIndexExec := -1;
 
   LoadIcons(lNTAServices);
   RegisterMenus(lNTAServices);
+  if TelemetryEnabled then
+    SendTelemetryEvent('activate', 'plugin_load');
 end;
 
 destructor TOtimizyWizard.Destroy;
@@ -91,7 +93,7 @@ end;
 
 procedure TOtimizyWizard.LoadIcons(ANTAService: INTAServices);
 var
-  lIcons: TImageList; // Convenção do desenvolvedor
+  lIcons: TImageList; // Convenï¿½ï¿½o do desenvolvedor
   lBmp: TBitmap;
 begin
   CodeSite.EnterMethod('LoadIcons');
@@ -115,7 +117,7 @@ begin
       lIcons.Add(lBmp, nil);
     end;
 
-    // Adiciona à ImageList global da IDE [7]
+    // Adiciona ï¿½ ImageList global da IDE [7]
     FImageIndexSite := ANTAService.AddImages(lIcons, 'Otimizy.Menu.Icons');
     FImageIndexExec := FImageIndexSite + 1;
     CodeSite.Send( csmLevel3, 'FImageIndexSite', FImageIndexSite );
@@ -142,7 +144,7 @@ begin
   lMenuItemSite.ImageIndex := FImageIndexSite;
   FMainMenu.Add(lMenuItemSite);
 
-  // Subitem 2: Chamar Diálogo/Executável
+  // Subitem 2: Chamar Diï¿½logo/Executï¿½vel
   lMenuItemExecProg := TMenuItem.Create(FMainMenu);
   lMenuItemExecProg.Caption := 'Executar Externo...';
   lMenuItemExecProg.OnClick := EvMenuExecutarClick;
@@ -157,6 +159,11 @@ begin
   lMenuItemExecProg.ImageIndex := FImageIndexExec;
   FMainMenu.Add(lMenuItemExecProg);
 
+  lMenuItemExecProg := TMenuItem.Create(FMainMenu);
+  lMenuItemExecProg.Caption := 'Configurar Telemetria...';
+  lMenuItemExecProg.OnClick := EvMenuTelemetryClick;
+  lMenuItemExecProg.ImageIndex := FImageIndexExec;
+  FMainMenu.Add(lMenuItemExecProg);
 
   // Adiciona o menu ao MainMenu da IDE (ex: antes do menu Help)
   ANTAService.MainMenu.Items.Add(FMainMenu);
@@ -174,9 +181,12 @@ var
 begin
   lOpenDialog := TOpenDialog.Create(nil);
   try
-    lOpenDialog.Filter := 'Executáveis (*.exe)|*.exe';
+    lOpenDialog.Filter := 'Executï¿½veis (*.exe)|*.exe';
     if lOpenDialog.Execute then
+    begin
       ShellExecute(0, 'open', PChar(lOpenDialog.FileName), nil, nil, SW_SHOWNORMAL);
+      SendTelemetryEvent('command', 'executar');
+    end;
   finally
     lOpenDialog.Free;
   end;
@@ -185,6 +195,7 @@ end;
 procedure TOtimizyWizard.EvMenuSiteClick(Sender: TObject);
 begin
   ShellExecute(0, 'open', PChar('https://www.otimizy.com.br'), nil, nil, SW_SHOWNORMAL);
+  SendTelemetryEvent('command', 'abrir_site');
 end;
 
 procedure TOtimizyWizard.EvMenuTraduzirClick(ASender: TObject);
@@ -200,18 +211,22 @@ begin
   if lSelectedText.Trim.IsEmpty then
     Exit;
 
-  //Montar chamada para API de tradução
-
-
-
-
+  SendTelemetryEvent('command', 'traduzir');
+  //Montar chamada para API de traduï¿½ï¿½o
 end;
 
-procedure Register;
+procedure TOtimizyWizard.EvMenuTelemetryClick(Sender: TObject);
 begin
-  ForceDemandLoadState(dlDisable);
-
-  RegisterPackageWizard(TOtimizyWizard.Create());
+  if TelemetryEnabled then
+  begin
+    if MessageDlg('Telemetria estÃ¡ ativada. Deseja desativar?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+      SetTelemetryEnabled(False);
+  end
+  else
+  begin
+    if MessageDlg('A telemetria coleta estatÃ­sticas de uso anÃ´nimas. Deseja ativar?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+      SetTelemetryEnabled(True);
+  end;
 end;
 
 end.

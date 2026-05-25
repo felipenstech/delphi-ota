@@ -1,0 +1,10 @@
+{
+  "client_id": "11111111-2222-3333-4444-555555555555",
+  "plugin_version": "0.1.0",
+  "event": "command",
+  "event_name": "traduzir",
+  "delphi_version": "10.1 Berlin",
+  "os": "Windows 10",
+  "timestamp": "2026-05-25T12:00:00Z",
+  "meta": { "duration_ms": 123 }
+}

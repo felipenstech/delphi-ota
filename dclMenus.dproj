@@ -98,7 +98,10 @@
             <Form>ViewLab</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="src\uSplashScreen.pas"/>
+        <DCCReference Include="src\MyPlugins.SplashScreen.pas"/>
+        <DCCReference Include="src\MyPlugins.Strings.pas"/>
+        <DCCReference Include="src\MyPlugins.Telemetry.pas"/>
+        <DCCReference Include="src\MyPlugins.RegisterPlugin.pas"/>
         <RcItem Include="icons\CHEM16.BMP">
             <ResourceType>BITMAP</ResourceType>
             <ResourceId>ID_SITE</ResourceId>

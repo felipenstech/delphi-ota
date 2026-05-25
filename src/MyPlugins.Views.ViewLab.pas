@@ -11,7 +11,11 @@ uses
   Vcl.Graphics,
   Vcl.Controls,
   Vcl.Forms,
-  Vcl.Dialogs, System.Actions, Vcl.ActnList, System.ImageList, Vcl.ImgList;
+  Vcl.Dialogs,
+  System.Actions,
+  Vcl.ActnList,
+  System.ImageList,
+  Vcl.ImgList;
 
 type
   TViewLab = class(TForm)
