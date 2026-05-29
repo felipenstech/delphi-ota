@@ -1,4 +1,4 @@
-unit MyPlugins.MainMenuItems;
+﻿unit MyPlugins.MainMenuItems;
 
 interface
 
@@ -42,9 +42,10 @@ uses
   Vcl.Controls,
   Vcl.Graphics,
   CodeSiteLogging,
-  MyPlugins.Telemetry;
+  MyPlugins.Telemetry,
+  MyPlugins.TelemetryConfig;
 
-{ TOtimizyWizard }
+
 
 constructor TOtimizyWizard.Create;
 var
@@ -59,8 +60,8 @@ begin
 
   LoadIcons(lNTAServices);
   RegisterMenus(lNTAServices);
-  if TelemetryEnabled then
-    SendTelemetryEvent('activate', 'plugin_load');
+  if TTelemetryService.TelemetryEnabled then
+    TTelemetryService.SendTelemetryEvent('activate', 'plugin_load');
 end;
 
 destructor TOtimizyWizard.Destroy;
@@ -73,7 +74,7 @@ end;
 
 procedure TOtimizyWizard.Execute;
 begin
-  // Teste
+
 end;
 
 function TOtimizyWizard.GetIDString: string;
@@ -93,7 +94,7 @@ end;
 
 procedure TOtimizyWizard.LoadIcons(ANTAService: INTAServices);
 var
-  lIcons: TImageList; // Conven��o do desenvolvedor
+  lIcons: TImageList;
   lBmp: TBitmap;
 begin
   CodeSite.EnterMethod('LoadIcons');
@@ -104,7 +105,7 @@ begin
   lBmp := TBitmap.Create();
   try
 
-    // Exemplo de carregamento de recurso do pacote [6]
+
     if FindResource(HInstance, 'ID_SITE', RT_BITMAP) <> 0 then begin
       lBmp.LoadFromResourceName(HInstance, 'ID_SITE');
       CodeSite.Send( csmLevel1, 'ID_SITE', 'ID_SITE' );
@@ -117,7 +118,7 @@ begin
       lIcons.Add(lBmp, nil);
     end;
 
-    // Adiciona � ImageList global da IDE [7]
+
     FImageIndexSite := ANTAService.AddImages(lIcons, 'Otimizy.Menu.Icons');
     FImageIndexExec := FImageIndexSite + 1;
     CodeSite.Send( csmLevel3, 'FImageIndexSite', FImageIndexSite );
@@ -137,14 +138,14 @@ begin
   FMainMenu := TMenuItem.Create(nil);
   FMainMenu.Caption := 'Otimizy';
 
-  // Subitem 1: Abrir Site
+
   lMenuItemSite := TMenuItem.Create(FMainMenu);
   lMenuItemSite.Caption := 'Abrir Site Otimizy';
   lMenuItemSite.OnClick := EvMenuSiteClick;
   lMenuItemSite.ImageIndex := FImageIndexSite;
   FMainMenu.Add(lMenuItemSite);
 
-  // Subitem 2: Chamar Di�logo/Execut�vel
+
   lMenuItemExecProg := TMenuItem.Create(FMainMenu);
   lMenuItemExecProg.Caption := 'Executar Externo...';
   lMenuItemExecProg.OnClick := EvMenuExecutarClick;
@@ -152,7 +153,7 @@ begin
   FMainMenu.Add(lMenuItemExecProg);
 
 
-  // Subitem 3: Traduzir Texto Selecionado
+
   lMenuItemExecProg := TMenuItem.Create(FMainMenu);
   lMenuItemExecProg.Caption := 'Traduzir Texto';
   lMenuItemExecProg.OnClick := EvMenuTraduzirClick;
@@ -165,14 +166,14 @@ begin
   lMenuItemExecProg.ImageIndex := FImageIndexExec;
   FMainMenu.Add(lMenuItemExecProg);
 
-  // Adiciona o menu ao MainMenu da IDE (ex: antes do menu Help)
+
   ANTAService.MainMenu.Items.Add(FMainMenu);
 
   FRunProgAction := TAction.Create(nil);
   FRunProgAction.Caption := 'Run Prog';
   FRunProgAction.OnExecute := EvMenuExecutarClick;
 
-//  ANTAService.AddToolButton(sViewToolBar, 'btnRunProg', FRunProgAction);
+
 end;
 
 procedure TOtimizyWizard.EvMenuExecutarClick(Sender: TObject);
@@ -181,11 +182,11 @@ var
 begin
   lOpenDialog := TOpenDialog.Create(nil);
   try
-    lOpenDialog.Filter := 'Execut�veis (*.exe)|*.exe';
+    lOpenDialog.Filter := 'Executáveis (*.exe)|*.exe';
     if lOpenDialog.Execute then
     begin
       ShellExecute(0, 'open', PChar(lOpenDialog.FileName), nil, nil, SW_SHOWNORMAL);
-      SendTelemetryEvent('command', 'executar');
+      TTelemetryService.SendTelemetryEvent('command', 'executar');
     end;
   finally
     lOpenDialog.Free;
@@ -195,7 +196,7 @@ end;
 procedure TOtimizyWizard.EvMenuSiteClick(Sender: TObject);
 begin
   ShellExecute(0, 'open', PChar('https://www.otimizy.com.br'), nil, nil, SW_SHOWNORMAL);
-  SendTelemetryEvent('command', 'abrir_site');
+  TTelemetryService.SendTelemetryEvent('command', 'abrir_site');
 end;
 
 procedure TOtimizyWizard.EvMenuTraduzirClick(ASender: TObject);
@@ -211,22 +212,13 @@ begin
   if lSelectedText.Trim.IsEmpty then
     Exit;
 
-  SendTelemetryEvent('command', 'traduzir');
-  //Montar chamada para API de tradu��o
+  TTelemetryService.SendTelemetryEvent('command', 'traduzir');
+
 end;
 
 procedure TOtimizyWizard.EvMenuTelemetryClick(Sender: TObject);
 begin
-  if TelemetryEnabled then
-  begin
-    if MessageDlg('Telemetria está ativada. Deseja desativar?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
-      SetTelemetryEnabled(False);
-  end
-  else
-  begin
-    if MessageDlg('A telemetria coleta estatísticas de uso anônimas. Deseja ativar?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
-      SetTelemetryEnabled(True);
-  end;
+  TfrmTelemetryConfig.ShowTelemetryConfig;
 end;
 
 end.

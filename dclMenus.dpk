@@ -1,7 +1,6 @@
 package dclMenus;
 
 {$R *.res}
-{$R *.dres}
 {$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
 {$ALIGN 8}
 {$ASSERTIONS ON}
@@ -30,8 +29,12 @@ package dclMenus;
 
 requires
   rtl,
+  dbrtl,
   designide,
-  CodeSiteExpressPkg;
+  CodeSiteExpressPkg,
+  dxCoreRS24,
+  cxLibraryRS24,
+  dxGDIPlusRS24;
 
 contains
   MyPlugins.MainMenuItems in 'src\MyPlugins.MainMenuItems.pas',
@@ -39,6 +42,7 @@ contains
   MyPlugins.SplashScreen in 'src\MyPlugins.SplashScreen.pas',
   MyPlugins.Strings in 'src\MyPlugins.Strings.pas',
   MyPlugins.Telemetry in 'src\MyPlugins.Telemetry.pas',
-  MyPlugins.RegisterPlugin in 'src\MyPlugins.RegisterPlugin.pas';
+  MyPlugins.RegisterPlugin in 'src\MyPlugins.RegisterPlugin.pas',
+  MyPlugins.TelemetryConfig in 'src\MyPlugins.TelemetryConfig.pas' {frmTelemetryConfig};
 
 end.

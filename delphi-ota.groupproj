@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <Project Include="dclMenus.dproj">
+      <Name>dclMenus</Name>
+      <Project>{6CB17001-1C79-4433-975C-1896A23EDB9B}</Project>
+      <ProjectFile>dclMenus.dproj</ProjectFile>
+    </Project>
+    <Project Include="PluginTest\PluginTests.dproj">
+      <Name>PluginTests</Name>
+      <Project>{CD8D5FF9-8B12-4A8B-90C0-8D2F3C7E5B9A}</Project>
+      <ProjectFile>PluginTest\PluginTests.dproj</ProjectFile>
+    </Project>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.ProjectType>ProjectGroup</Borland.ProjectType>
+    <Borland.Personality>Default.Personality</Borland.Personality>
+  </ProjectExtensions>
+  <Target Name="dclMenus">
+    <MSBuild Projects="dclMenus.dproj"/>
+  </Target>
+  <Target Name="dclMenus:Clean">
+    <MSBuild Projects="dclMenus.dproj" Targets="Clean"/>
+  </Target>
+  <Target Name="dclMenus:Make">
+    <MSBuild Projects="dclMenus.dproj" Targets="Make"/>
+  </Target>
+  <Target Name="PluginTests">
+    <MSBuild Projects="PluginTest\PluginTests.dproj"/>
+  </Target>
+  <Target Name="PluginTests:Clean">
+    <MSBuild Projects="PluginTest\PluginTests.dproj" Targets="Clean"/>
+  </Target>
+  <Target Name="PluginTests:Make">
+    <MSBuild Projects="PluginTest\PluginTests.dproj" Targets="Make"/>
+  </Target>
+</Project>

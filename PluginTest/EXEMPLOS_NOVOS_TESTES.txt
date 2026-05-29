@@ -1,0 +1,363 @@
+// ============================================================================
+// EXEMPLOS DE EXTENSÃO - Como Adicionar Novos Testes ao Projeto
+// ============================================================================
+//
+// Este arquivo contém exemplos práticos de como expandir o suite de testes
+// com novos casos, seguindo as mesmas boas práticas implementadas.
+//
+// Adicione estes exemplos ao arquivo TestMyPluginsTelemetry.pas conforme necessário.
+// ============================================================================
+
+// ============================================================================
+// EXEMPLO 1: Teste Parametrizado com [TestCase]
+// ============================================================================
+{
+  Este exemplo mostra como testar múltiplas entradas com um único método.
+  Útil para testar múltiplos cenários similares.
+
+  [Test]
+  [TestCase('Evento_vazio', ',')]
+  [TestCase('Evento_valido', 'user_action,')]
+  [TestCase('Evento_com_espacos', '  user_action  ,')]
+  procedure TestSendEventWithDifferentInputs(const AEvent, AExpectedPrefix: string);
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SendTelemetryEvent(AEvent);
+      end,
+      Exception,
+      'Envio de evento com entrada "' + AEvent + '" não deve lançar exceção'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 2: Teste com Verificação de JSON Metadados
+// ============================================================================
+{
+  Este exemplo testa o parsing e validação de metadados JSON.
+
+  [Test]
+  procedure TestEventWithValidJsonMetadata;
+  var
+    lJsonMeta: string;
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    lJsonMeta := '{"action":"click","element":"button","x":100,"y":200}';
+
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SendTelemetryEvent('ui_interaction', 'ButtonClick', lJsonMeta);
+      end,
+      Exception,
+      'JSON válido como metadados deve ser aceito'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 3: Teste para Verificar Desabilitação Dupla
+// ============================================================================
+{
+  Este exemplo testa a idempotência da operação (executar 2x tem mesmo efeito).
+
+  [Test]
+  procedure TestDisableTelemetryTwiceIsIdempotent;
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    // Primeira desabilitação
+    TTelemetryService.SetTelemetryEnabled(False);
+    Assert.IsFalse(TTelemetryService.TelemetryEnabled);
+
+    // Segunda desabilitação (não deve provocar erro)
+    TTelemetryService.SetTelemetryEnabled(False);
+    Assert.IsFalse(TTelemetryService.TelemetryEnabled, 'Dupla desabilitação deve ser segura');
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 4: Teste com Setup Customizado
+// ============================================================================
+{
+  Este exemplo mostra como fazer setup diferente para um teste específico.
+
+  [Test]
+  procedure TestTelemetryWithCustomEndpoint;
+  var
+    lCustomEndpoint: string;
+  begin
+    lCustomEndpoint := 'https://custom.telemetry.company.com/api/v1/events';
+
+    TTelemetryService.InitializeTelemetry(lCustomEndpoint, '2.0.0');
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SetTelemetryEnabled(True);
+      end,
+      Exception,
+      'Endpoint customizado deve ser aceito'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 5: Teste de Concorrência (Thread Safety)
+// ============================================================================
+{
+  Este exemplo testa se o serviço é thread-safe.
+
+  uses System.Threading;
+
+  [Test]
+  procedure TestTelemetryIsThreadSafe;
+  var
+    lTasks: array[0..4] of ITask;
+    i: Integer;
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    // Criar múltiplas tasks que enviam eventos simultaneamente
+    for i := 0 to Length(lTasks) - 1 do
+    begin
+      lTasks[i] := TTask.Create(
+        procedure
+        begin
+          TTelemetryService.SendTelemetryEvent('concurrent_event_' + IntToStr(i));
+        end
+      );
+    end;
+
+    // Executar todas as tasks
+    for i := 0 to Length(lTasks) - 1 do
+      lTasks[i].Start;
+
+    // Aguardar conclusão
+    TTask.WaitForAll(lTasks);
+
+    // Flush para garantir que tudo foi processado
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.FlushTelemetry(5000);
+      end,
+      Exception,
+      'Múltiplas threads enviando eventos simultaneamente deve ser seguro'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 6: Teste de Erro com Mensagem Customizada
+// ============================================================================
+{
+  Este exemplo testa comportamento esperado de erro.
+
+  [Test]
+  procedure TestInvalidJsonMetadataIsHandled;
+  var
+    lInvalidJson: string;
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    lInvalidJson := '{invalid json: no closing brace';
+
+    // O método não deve lançar exceção mesmo com JSON inválido
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SendTelemetryEvent('user_action', 'Test', lInvalidJson);
+      end,
+      Exception,
+      'JSON inválido deve ser tratado graciosamente'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 7: Teste com Valores Especiais (Special Cases)
+// ============================================================================
+{
+  Este exemplo testa valores especiais e edge cases.
+
+  [Test]
+  procedure TestEventWithSpecialCharacters;
+  var
+    lEventName: string;
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    // Teste com caracteres especiais e Unicode
+    lEventName := 'evento_com_àáâãäåæç_e_números_123_e_símbolos_!@#$%';
+
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SendTelemetryEvent('test', lEventName);
+      end,
+      Exception,
+      'Caracteres especiais e Unicode devem ser tratados'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 8: Teste de Comportamento Sequencial
+// ============================================================================
+{
+  Este exemplo testa uma sequência de operações.
+
+  [Test]
+  procedure TestTelemetryLifecycle;
+  begin
+    // Fase 1: Inicialização
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+      end,
+      Exception
+    );
+
+    // Fase 2: Verificar estado inicial
+    Assert.IsFalse(TTelemetryService.TelemetryEnabled);
+
+    // Fase 3: Habilitar
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SetTelemetryEnabled(True);
+      end,
+      Exception
+    );
+
+    Assert.IsTrue(TTelemetryService.TelemetryEnabled);
+
+    // Fase 4: Enviar eventos
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SendTelemetryEvent('event1');
+        TTelemetryService.SendTelemetryEvent('event2', 'named_event');
+        TTelemetryService.SendTelemetryEvent('event3', 'with_meta', '{"test":"value"}');
+      end,
+      Exception
+    );
+
+    // Fase 5: Desabilitar
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SetTelemetryEnabled(False);
+      end,
+      Exception
+    );
+
+    Assert.IsFalse(TTelemetryService.TelemetryEnabled);
+
+    // Fase 6: Flush
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.FlushTelemetry;
+      end,
+      Exception
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 9: Teste com Verificação de Comportamento Após Flush
+// ============================================================================
+{
+  Este exemplo testa o comportamento após flush.
+
+  [Test]
+  procedure TestSendEventAfterFlush;
+  begin
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    // Enviar primeiro evento
+    TTelemetryService.SendTelemetryEvent('first_event');
+
+    // Flush
+    TTelemetryService.FlushTelemetry(2000);
+
+    // Enviar segundo evento após flush
+    Assert.WillNotRaise(
+      procedure
+      begin
+        TTelemetryService.SendTelemetryEvent('second_event');
+      end,
+      Exception,
+      'Deve ser possível enviar eventos após flush'
+    );
+  end;
+}
+
+// ============================================================================
+// EXEMPLO 10: Teste de Performance (Benchmark)
+// ============================================================================
+{
+  Este exemplo testa performance básica do envio de eventos.
+
+  uses System.Diagnostics;
+
+  [Test]
+  procedure TestEventSendingPerformance;
+  var
+    lStopwatch: TStopwatch;
+    lIterations: Integer;
+    i: Integer;
+    lElapsedMs: Int64;
+  begin
+    lIterations := 100;
+
+    TTelemetryService.InitializeTelemetry(FTestEndpoint, FTestVersion);
+    TTelemetryService.SetTelemetryEnabled(True);
+
+    lStopwatch := TStopwatch.StartNew;
+
+    // Enviar múltiplos eventos
+    for i := 1 to lIterations do
+    begin
+      TTelemetryService.SendTelemetryEvent('perf_test_' + IntToStr(i));
+    end;
+
+    lStopwatch.Stop;
+    lElapsedMs := lStopwatch.ElapsedMilliseconds;
+
+    // Verificar que não excedeu tempo razoável (ex: < 5 segundos)
+    Assert.IsTrue(
+      lElapsedMs < 5000,
+      Format('Envio de %d eventos levou %dms (esperado < 5000ms)', [lIterations, lElapsedMs])
+    );
+  end;
+}
+
+// ============================================================================
+// INSTRUÇÕES PARA ADICIONAR OS EXEMPLOS
+// ============================================================================
+//
+// 1. Copie o exemplo que deseja usar
+// 2. Cole-o na classe TTestTelemetryService em TestMyPluginsTelemetry.pas
+// 3. Adicione os imports necessários no início do arquivo (se houver)
+// 4. Compilar e executar
+//
+// IMPORTS ADICIONAIS NECESSÁRIOS PARA ALGUNS EXEMPLOS:
+//   - Para Threading: uses System.Threading;
+//   - Para Diagnostics: uses System.Diagnostics;
+//
+// ============================================================================

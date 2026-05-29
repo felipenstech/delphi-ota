@@ -8,11 +8,34 @@ uses
   System.JSON,
   System.IOUtils;
 
-function TelemetryEnabled: Boolean;
-procedure InitializeTelemetry(const AEndpoint, APluginVersion: string);
-procedure SetTelemetryEnabled(const AEnabled: Boolean);
-procedure SendTelemetryEvent(const AEvent: string; const AEventName: string = ''; const AMeta: string = '');
-procedure FlushTelemetry(ATimeoutMs: Integer = 5000);
+type
+  TTelemetryService = class sealed
+  private
+    class var FEndpoint: string;
+    class var FPluginVersion: string;
+    class var FClientId: string;
+    class var FConsent: Boolean;
+    class var FConfigPath: string;
+    class var FInitialized: Boolean;
+    class var FCurrentSendThread: TThread;
+    class function GetTelemetryFolder: string; static;
+    class function GetTelemetryConfigPath: string; static;
+    class function CreateNewClientId: string; static;
+    class function GetIsoUtcTimestamp: string; static;
+    class function GetOsName: string; static;
+    class function GetDelphiVersion: string; static;
+    class procedure SaveTelemetryConfig; static;
+    class procedure LoadTelemetryConfig; static;
+    class function ParseUrl(const AUrl: string; out AScheme, AHost, APath: string; out APort: Integer): Boolean; static;
+    class procedure PostTelemetryPayload(const APayload: string); static;
+    class procedure DoSendTelemetryEvent(const AEvent, AEventName, AMeta: string); static;
+  public
+    class function TelemetryEnabled: Boolean; static;
+    class procedure InitializeTelemetry(const AEndpoint, APluginVersion: string); static;
+    class procedure SetTelemetryEnabled(const AEnabled: Boolean); static;
+    class procedure SendTelemetryEvent(const AEvent: string; const AEventName: string = ''; const AMeta: string = ''); static;
+    class procedure FlushTelemetry(ATimeoutMs: Integer = 5000); static;
+  end;
 
 implementation
 
@@ -28,29 +51,9 @@ const
   TELEMETRY_DEFAULT_ENDPOINT = 'https://telemetry.example.com/collect';
   DEFAULT_PLUGIN_VERSION = '0.1.0';
 
-var
-  FEndpoint: string;
-  FPluginVersion: string;
-  FClientId: string;
-  FConsent: Boolean;
-  FConfigPath: string;
-  FInitialized: Boolean;
-  FCurrentSendThread: TThread;
+{ TTelemetryService }
 
-function GetTelemetryFolder: string;
-begin
-  Result := GetEnvironmentVariable('APPDATA');
-  if Result.IsEmpty then
-    Result := TPath.GetHomePath;
-  Result := TPath.Combine(Result, TELEMETRY_APP_FOLDER);
-end;
-
-function GetTelemetryConfigPath: string;
-begin
-  Result := TPath.Combine(GetTelemetryFolder, TELEMETRY_CONFIG_FILE);
-end;
-
-function CreateNewClientId: string;
+class function TTelemetryService.CreateNewClientId: string;
 var
   lGuid: TGUID;
 begin
@@ -60,76 +63,35 @@ begin
     Result := '00000000-0000-0000-0000-000000000000';
 end;
 
-function GetIsoUtcTimestamp: string;
-begin
-  Result := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"', Now);
-end;
-
-function GetOsName: string;
-begin
-  Result := TOSVersion.Name;
-end;
-
-function GetDelphiVersion: string;
+class function TTelemetryService.GetDelphiVersion: string;
 begin
   Result := TPath.GetFileName(ParamStr(0));
 end;
 
-procedure SaveTelemetryConfig;
-var
-  lJson: TJSONObject;
-  lConfigDir: string;
+class function TTelemetryService.GetIsoUtcTimestamp: string;
 begin
-  lConfigDir := GetTelemetryFolder;
-  if not TDirectory.Exists(lConfigDir) then
-    TDirectory.CreateDirectory(lConfigDir);
-
-  lJson := TJSONObject.Create;
-  try
-    lJson.AddPair('client_id', FClientId);
-    lJson.AddPair('consent', TJSONBool.Create(FConsent));
-    lJson.AddPair('last_saved', TJSONString.Create(GetIsoUtcTimestamp));
-    TFile.WriteAllText(FConfigPath, lJson.ToJSON, TEncoding.UTF8);
-  finally
-    lJson.Free;
-  end;
+  Result := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"', Now);
 end;
 
-procedure LoadTelemetryConfig;
-var
-  lJson: TJSONObject;
-  lValue: TJSONValue;
-  lText: string;
+class function TTelemetryService.GetOsName: string;
 begin
-  FClientId := CreateNewClientId;
-  FConsent := False;
-  if not TFile.Exists(FConfigPath) then
-  begin
-    SaveTelemetryConfig;
-    Exit;
-  end;
-
-  try
-    lText := TFile.ReadAllText(FConfigPath, TEncoding.UTF8);
-    lJson := TJSONObject.ParseJSONValue(lText) as TJSONObject;
-    if Assigned(lJson) then
-    try
-      lValue := lJson.GetValue('client_id');
-      if Assigned(lValue) and (lValue is TJSONString) and not TJSONString(lValue).Value.IsEmpty then
-        FClientId := TJSONString(lValue).Value;
-
-      lValue := lJson.GetValue('consent');
-      if Assigned(lValue) and (lValue is TJSONBool) then
-        FConsent := TJSONBool(lValue).AsBoolean;
-    finally
-      lJson.Free;
-    end;
-  except
-    FConsent := False;
-  end;
+  Result := TOSVersion.Name;
 end;
 
-function ParseUrl(const AUrl: string; out AScheme, AHost, APath: string; out APort: Integer): Boolean;
+class function TTelemetryService.GetTelemetryConfigPath: string;
+begin
+  Result := TPath.Combine(GetTelemetryFolder, TELEMETRY_CONFIG_FILE);
+end;
+
+class function TTelemetryService.GetTelemetryFolder: string;
+begin
+  Result := GetEnvironmentVariable('APPDATA');
+  if Result.IsEmpty then
+    Result := TPath.GetHomePath;
+  Result := TPath.Combine(Result, TELEMETRY_APP_FOLDER);
+end;
+
+class function TTelemetryService.ParseUrl(const AUrl: string; out AScheme, AHost, APath: string; out APort: Integer): Boolean;
 var
   lUrl: string;
   lPos, lPortPos: Integer;
@@ -178,7 +140,41 @@ begin
   Result := AHost <> '';
 end;
 
-procedure PostTelemetryPayload(const APayload: string);
+class procedure TTelemetryService.LoadTelemetryConfig;
+var
+  lJson: TJSONObject;
+  lValue: TJSONValue;
+  lText: string;
+begin
+  FClientId := CreateNewClientId;
+  FConsent := False;
+  if not TFile.Exists(FConfigPath) then
+  begin
+    SaveTelemetryConfig;
+    Exit;
+  end;
+
+  try
+    lText := TFile.ReadAllText(FConfigPath, TEncoding.UTF8);
+    lJson := TJSONObject.ParseJSONValue(lText) as TJSONObject;
+    if Assigned(lJson) then
+    try
+      lValue := lJson.GetValue('client_id');
+      if Assigned(lValue) and (lValue is TJSONString) and not TJSONString(lValue).Value.IsEmpty then
+        FClientId := TJSONString(lValue).Value;
+
+      lValue := lJson.GetValue('consent');
+      if Assigned(lValue) and (lValue is TJSONBool) then
+        FConsent := TJSONBool(lValue).AsBoolean;
+    finally
+      lJson.Free;
+    end;
+  except
+    FConsent := False;
+  end;
+end;
+
+class procedure TTelemetryService.PostTelemetryPayload(const APayload: string);
 var
   lSession, lConnect, lRequest: HINTERNET;
   lScheme, lHost, lPath: string;
@@ -237,7 +233,27 @@ begin
   end;
 end;
 
-procedure DoSendTelemetryEvent(const AEvent, AEventName, AMeta: string);
+class procedure TTelemetryService.SaveTelemetryConfig;
+var
+  lJson: TJSONObject;
+  lConfigDir: string;
+begin
+  lConfigDir := GetTelemetryFolder;
+  if not TDirectory.Exists(lConfigDir) then
+    TDirectory.CreateDirectory(lConfigDir);
+
+  lJson := TJSONObject.Create;
+  try
+    lJson.AddPair('client_id', FClientId);
+    lJson.AddPair('consent', TJSONBool.Create(FConsent));
+    lJson.AddPair('last_saved', TJSONString.Create(GetIsoUtcTimestamp));
+    TFile.WriteAllText(FConfigPath, lJson.ToJSON, TEncoding.UTF8);
+  finally
+    lJson.Free;
+  end;
+end;
+
+class procedure TTelemetryService.DoSendTelemetryEvent(const AEvent, AEventName, AMeta: string);
 var
   lPayload: TJSONObject;
   lMetaValue: TJSONValue;
@@ -291,7 +307,7 @@ begin
         try
           PostTelemetryPayload(lPayload.ToJSON);
         except
-          // ignore telemetry errors
+
         end;
       end);
     FCurrentSendThread.Start;
@@ -300,12 +316,12 @@ begin
   end;
 end;
 
-function TelemetryEnabled: Boolean;
+class function TTelemetryService.TelemetryEnabled: Boolean;
 begin
   Result := FConsent;
 end;
 
-procedure InitializeTelemetry(const AEndpoint, APluginVersion: string);
+class procedure TTelemetryService.InitializeTelemetry(const AEndpoint, APluginVersion: string);
 begin
   if FInitialized then
     Exit;
@@ -323,7 +339,7 @@ begin
   FInitialized := True;
 end;
 
-procedure SetTelemetryEnabled(const AEnabled: Boolean);
+class procedure TTelemetryService.SetTelemetryEnabled(const AEnabled: Boolean);
 begin
   if not FInitialized then
     InitializeTelemetry(TELEMETRY_DEFAULT_ENDPOINT, DEFAULT_PLUGIN_VERSION);
@@ -340,12 +356,12 @@ begin
     DoSendTelemetryEvent('user_opt_out', '', '');
 end;
 
-procedure SendTelemetryEvent(const AEvent: string; const AEventName: string = ''; const AMeta: string = '');
+class procedure TTelemetryService.SendTelemetryEvent(const AEvent, AEventName, AMeta: string);
 begin
   DoSendTelemetryEvent(AEvent, AEventName, AMeta);
 end;
 
-procedure FlushTelemetry(ATimeoutMs: Integer = 5000);
+class procedure TTelemetryService.FlushTelemetry(ATimeoutMs: Integer = 5000);
 begin
   if Assigned(FCurrentSendThread) then
   try
@@ -356,9 +372,9 @@ begin
 end;
 
 initialization
-  InitializeTelemetry(TELEMETRY_DEFAULT_ENDPOINT, DEFAULT_PLUGIN_VERSION);
+  TTelemetryService.InitializeTelemetry(TELEMETRY_DEFAULT_ENDPOINT, DEFAULT_PLUGIN_VERSION);
 
 finalization
-  FlushTelemetry(2000);
+  TTelemetryService.FlushTelemetry(2000);
 
 end.

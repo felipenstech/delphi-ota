@@ -23,12 +23,13 @@ type
     ActionList1: TActionList;
     Action1: TAction;
   private
-    { Private declarations }
+
   public
-    { Public declarations }
+
   end;
 
 implementation
+
 
 {$R *.dfm}
 
